@@ -1,4 +1,4 @@
-SHEET_URL <- "https://docs.google.com/spreadsheets/d/1ze07poTui2eu_paYYQM_VwzZ8jbA1hX5kFAdwaaw7Ek/edit?gid=0#gid=0"
+SHEET_URL <- "this does not exist yet sorry, but this would be a link to a public google sheet"
 AC_BINS <- list(
   "vs_ac_35_40" = 35:40,
   "vs_ac_40_45" = 40:45, 
