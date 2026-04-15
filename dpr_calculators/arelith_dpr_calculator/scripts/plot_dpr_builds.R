@@ -2,7 +2,7 @@
 # Plot DPR Builds
 # Plots a graph in R for selected builds over AC range 35 through 70
 
-source("R/nwn_dpr_core.R")
+source("R/arelith_dpr_core.R")
 source("config/config.R")
 library(googlesheets4)
 library(dplyr)
@@ -25,7 +25,7 @@ dpr_matrix <- sapply(1:nrow(target_builds), function(i) {
 })
 
 # Plot the graph!
-colnames(dpr_matrix) <- target_builds$build
+colnames(dpr_matrix) <- target_builds$"Build"
 
 matplot(x = ac_curve, 
         y = dpr_matrix, 
@@ -48,3 +48,4 @@ legend("topright",
        cex = 0.7,
        bg = rgb(1,1,1,0.8),
        box.col = "gray")
+

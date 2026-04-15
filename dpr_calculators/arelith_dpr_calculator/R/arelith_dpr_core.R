@@ -26,14 +26,20 @@ attacks <- function(ab, base_apr) {
 #' @param ab Numeric. Highest Attack Bonus.
 #' @param base_apr Numeric. Base Attacks Per Round.
 #' @param haste Logical. Adds one attack at lowest AB - 5.
-#' @param flurry Logical. Adds one attack at lowest AB - 5, applies -2 penalty to all attacks.
 #' @param dualwield Logical. Adds two off-hand attacks, applies -1 penalty to all attacks.
+#' @param brawler Logical. Adds two attacks at lowest AB -5 and -10.
+#' @param flurry Logical. Adds one attack at lowest AB - 5, applies -2 penalty to all attacks.
 #' @param extra_apr Logical. Adds one attack at highest AB.
 #'
 #' @return A data frame where each column represents an attack and each row represents a d20 roll outcome (1-20).
-attacks_df <- function(ab, base_apr, haste = TRUE, flurry = FALSE, dualwield = FALSE, extra_apr = FALSE) {
-  df <- data.frame("1" = roll20)
+attacks_df <- function(ab, base_apr, haste = TRUE, dualwield = FALSE, brawler = FALSE, flurry = FALSE, extra_apr = FALSE) {
+  
+  # Apply global penalties AB penalties
+  if (dualwield) ab <- ab - 1
+  if (flurry) ab <- ab - 2
+  
   attack_values <- attacks(ab, base_apr)
+  df <- data.frame("1" = roll20)
   
   # Populate base attacks
   for (i in 1:base_apr) {
@@ -42,21 +48,28 @@ attacks_df <- function(ab, base_apr, haste = TRUE, flurry = FALSE, dualwield = F
   
   attack_decrement <- 5
   
-  # Add extra attack from Haste
-  if (haste) df$haste <- attack_values[length(attack_values)] + roll20 - attack_decrement
-  # Add extra attack from Flurry of Blows and apply AB penalty
+  # Add extra attack to tail from Haste
+  if (haste) {
+    df$haste <- attack_values[length(attack_values)] + roll20 - attack_decrement
+  }
+  # Add extra attacks at highest AB from Dual Wielding
+  if (dualwield) {
+    df$dualwield1 <- attack_values[1] + roll20
+    df$dualwield2 <- attack_values[2] + roll20
+  }
+  # Add 2 extra attacks to tail from Brawler
+  if (brawler) {
+    df$brawl1 <- attack_values[length(attack_values)] + roll20 - attack_decrement
+    df$brawl2 <- attack_values[length(attack_values)] + roll20 - (attack_decrement * 2)
+  }
+  # Add extra attack to tail from Flurry of Blows
   if (flurry) {
     df$flurry <- attack_values[length(attack_values)] + roll20 - attack_decrement
-    df <- df - 2
   }
-  # Add extra attacks from Dual Wielding and apply AB penalty
-  if (dualwield) {
-    df$dualwield1 <- attacks(ab, base_apr)[1] + roll20
-    df$dualwield2 <- attacks(ab, base_apr)[2] + roll20
-    df <- df - 1
+  # Add extra attack at full AB
+  if (extra_apr) {
+    df$extra_apr <- attack_values[1] + roll20
   }
-  # Add extra attack at full BAB (barbarian extra APR)
-  if (extra_apr) df$extra_apr <- attacks(ab, base_apr)[1] + roll20
   
   return(df)
 }
@@ -163,17 +176,18 @@ damage <- function(ab, base_apr, haste, flurry, dualwield, extra_apr, enemy_ac, 
 calculate_dpr_for_build <- function(row_data, ac_sequence) {
   sapply(ac_sequence, function(enemy_ac) {
     damage(
-      ab = row_data$ab,
-      base_apr = row_data$base_apr,
-      haste = as.logical(row_data$haste),
-      flurry = as.logical(row_data$flurry),
-      dualwield = as.logical(row_data$dualwield),
-      extra_apr = as.logical(row_data$extra_apr),
+      ab = row_data$"Stable AB",
+      base_apr = row_data$"Base APR",
+      haste = as.logical(row_data$"Has Haste"),
+      dualwield = as.logical(row_data$"Has Dualwield"),
+      brawler = as.logical(row_data$"Has Brawler"),
+      flurry = as.logical(row_data$"Has Flurry"),
+      extra_apr = as.logical(row_data$"Has Extra APR"),
       enemy_ac = enemy_ac,
-      crit_range = row_data$crit_range,
-      crit_threat = row_data$crit_threat,
-      dmg_per_hit = row_data$dmg_per_hit,
-      sneak_per_hit = row_data$sneak_per_hit
+      crit_range = row_data$"Critical Range",
+      crit_threat = row_data$"Critical Threat",
+      dmg_per_hit = row_data$"Damage Per Hit",
+      sneak_per_hit = row_data$"Sneak Per Hit"
     )
   })
 }
