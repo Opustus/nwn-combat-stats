@@ -4,13 +4,6 @@
 roll20 <- 1:20
 
 #' Calculate Base Attack Bonuses
-#' 
-#' Generates a sequence of attack bonuses for a character's base attacks per round.
-#'
-#' @param ab Numeric. The highest Attack Bonus (AB) for the first attack.
-#' @param base_apr Numeric. Base Attacks Per Round (APR).
-#'
-#' @return A numeric vector of attack bonuses for each base attack.
 attacks <- function(ab, base_apr) {
   first_attack_ab <- ab
   attack_decrement <- -5
@@ -19,19 +12,6 @@ attacks <- function(ab, base_apr) {
 }
 
 #' Generate Attack Roll Matrix
-#' 
-#' Creates a data frame representing all possible d20 outcomes (1-20) for every 
-#' attack made in a round, factoring in extra attacks from buffs and feats.
-#'
-#' @param ab Numeric. Highest Attack Bonus.
-#' @param base_apr Numeric. Base Attacks Per Round.
-#' @param haste Logical. Adds one attack at lowest AB - 5.
-#' @param dualwield Logical. Adds two off-hand attacks, applies -1 penalty to all attacks.
-#' @param brawler Logical. Adds two attacks at lowest AB -5 and -10.
-#' @param flurry Logical. Adds one attack at lowest AB - 5, applies -2 penalty to all attacks.
-#' @param extra_apr Logical. Adds one attack at highest AB.
-#'
-#' @return A data frame where each column represents an attack and each row represents a d20 roll outcome (1-20).
 attacks_df <- function(ab, base_apr, haste = TRUE, dualwield = FALSE, brawler = FALSE, flurry = FALSE, extra_apr = FALSE) {
   
   # Apply global penalties AB penalties
@@ -52,7 +32,7 @@ attacks_df <- function(ab, base_apr, haste = TRUE, dualwield = FALSE, brawler = 
   if (haste) {
     df$haste <- attack_values[length(attack_values)] + roll20 - attack_decrement
   }
-  # Add extra attacks at highest AB from Dual Wielding
+  # Add extra attacks from Dual Wielding
   if (dualwield) {
     df$dualwield1 <- attack_values[1] + roll20
     df$dualwield2 <- attack_values[2] + roll20
@@ -75,22 +55,8 @@ attacks_df <- function(ab, base_apr, haste = TRUE, dualwield = FALSE, brawler = 
 }
 
 #' Calculate Expected Hits
-#' 
-#' Determines the total number of successful hits across all possible permutations 
-#' of a full round of attacks against a specific Armor Class (AC).
-#' Accounts for NWN1 mechanics where a natural 1 is an automatic miss and 20 is an automatic hit.
-#'
-#' @param ab Numeric. Highest Attack Bonus.
-#' @param base_apr Numeric. Base Attacks Per Round.
-#' @param haste Logical. Haste active.
-#' @param flurry Logical. Flurry of Blows active.
-#' @param dualwield Logical. Dual Wielding active.
-#' @param extra_apr Logical. Extra Attack Per Round active.
-#' @param enemy_ac Numeric. The Armor Class of the target.
-#'
-#' @return Numeric. The total number of successful hits out of all d20 permutations
-hits <- function(ab, base_apr, haste, flurry, dualwield, extra_apr, enemy_ac) {
-  hit_rolls <- attacks_df(ab, base_apr, haste, flurry, dualwield, extra_apr) - enemy_ac
+hits <- function(ab, base_apr, haste, dualwield, brawler, flurry, extra_apr, enemy_ac) {
+  hit_rolls <- attacks_df(ab, base_apr, haste, dualwield, brawler, flurry, extra_apr) - enemy_ac
   
   # NWN Rule: Natural 1 always misses, Natural 20 always hits
   hit_rolls[1, ] <- -1
@@ -101,22 +67,8 @@ hits <- function(ab, base_apr, haste, flurry, dualwield, extra_apr, enemy_ac) {
 }
 
 #' Calculate Expected Critical Hits
-#' 
-#' Determines the expected number of critical hits by calculating threat chance 
-#' and multiplying it by the confirmation chance (which is equal to the hit chance).
-#'
-#' @param ab Numeric. Highest Attack Bonus.
-#' @param base_apr Numeric. Base Attacks Per Round.
-#' @param haste Logical. Haste active.
-#' @param flurry Logical. Flurry of Blows active.
-#' @param dualwield Logical. Dual Wielding active.
-#' @param extra_apr Logical. extra_apr (+1 APR) active.
-#' @param enemy_ac Numeric. The Armor Class of the target.
-#' @param crit_range Numeric. The lowest number required to threaten a critical hit (e.g., 19 for 19-20).
-#'
-#' @return Numeric. The expected number of confirmed critical hits.
-crits <- function(ab, base_apr, haste, flurry, dualwield, extra_apr, enemy_ac, crit_range) {
-  crit_rolls <- attacks_df(ab, base_apr, haste, flurry, dualwield, extra_apr) - enemy_ac
+crits <- function(ab, base_apr, haste, dualwield, brawler, flurry, extra_apr, enemy_ac, crit_range) {
+  crit_rolls <- attacks_df(ab, base_apr, haste, dualwield, brawler, flurry, extra_apr) - enemy_ac
   
   # Isolate rolls that fall within the critical threat range
   crits <- crit_rolls[crit_range:20, ]
@@ -126,31 +78,14 @@ crits <- function(ab, base_apr, haste, flurry, dualwield, extra_apr, enemy_ac, c
   crit_chance <- crits / (length(crit_rolls) * nrow(crit_rolls))
   
   # Multiply threat chance by total successful hits to get confirmed crits
-  crits <- hits(ab, base_apr, haste, flurry, dualwield, extra_apr, enemy_ac) * crit_chance
+  crits <- hits(ab, base_apr, haste, dualwield, brawler, flurry, extra_apr, enemy_ac) * crit_chance
   return(crits)
 }
 
 #' Calculate Average Damage Per Round (DPR)
-#' 
-#' Computes the total average damage per round by separating regular hits and critical hits,
-#' applying base damage, critical multipliers, and precision damage (sneak attacks) appropriately.
-#'
-#' @param ab Numeric. Highest Attack Bonus.
-#' @param base_apr Numeric. Base Attacks Per Round.
-#' @param haste Logical. Haste active.
-#' @param flurry Logical. Flurry of Blows active.
-#' @param dualwield Logical. Dual Wielding active.
-#' @param extra_apr Logical. extra_apr (+1 APR) active.
-#' @param enemy_ac Numeric. The Armor Class of the target.
-#' @param crit_range Numeric. Lowest d20 roll to threaten a crit.
-#' @param crit_threat Numeric. The critical multiplier (e.g., 2 for x2, 3 for x3).
-#' @param dmg_per_hit Numeric. Average base damage applied on every hit.
-#' @param sneak_per_hit Numeric. Average precision/sneak attack damage applied on every hit (not multiplied on crits).
-#'
-#' @return Numeric. The average Damage Per Round against the specified AC.
-damage <- function(ab, base_apr, haste, flurry, dualwield, extra_apr, enemy_ac, crit_range, crit_threat, dmg_per_hit, sneak_per_hit) {
-  crits_val <- crits(ab, base_apr, haste, flurry, dualwield, extra_apr, enemy_ac, crit_range)
-  hits_val <- hits(ab, base_apr, haste, flurry, dualwield, extra_apr, enemy_ac) - crits_val
+damage <- function(ab, base_apr, haste, dualwield, brawler, flurry, extra_apr, enemy_ac, crit_range, crit_threat, dmg_per_hit, sneak_per_hit) {
+  crits_val <- crits(ab, base_apr, haste, dualwield, brawler, flurry, extra_apr, enemy_ac, crit_range)
+  hits_val <- hits(ab, base_apr, haste, dualwield, brawler, flurry, extra_apr, enemy_ac) - crits_val
   
   # Regular hits calculate base damage + sneak attack
   hits_damage <- hits_val * (dmg_per_hit + sneak_per_hit)
@@ -164,15 +99,6 @@ damage <- function(ab, base_apr, haste, flurry, dualwield, extra_apr, enemy_ac, 
 }
 
 #' Calculate DPR Over an AC Sequence
-#' 
-#' A generic wrapper that iterates the `damage` function over a sequence of target Armor Classes.
-#' Designed to consume a row of build data (e.g., from a Google Sheet) and an AC range.
-#'
-#' @param row_data A list or single-row data frame containing build parameters 
-#'                 (ab, base_apr, haste, flurry, dualwield, extra_apr, crit_range, crit_threat, dmg_per_hit, sneak_per_hit).
-#' @param ac_sequence A numeric vector of Armor Classes to test against (e.g., 30:40).
-#'
-#' @return A numeric vector representing the expected Damage Per Round for each AC in the sequence.
 calculate_dpr_for_build <- function(row_data, ac_sequence) {
   sapply(ac_sequence, function(enemy_ac) {
     damage(
