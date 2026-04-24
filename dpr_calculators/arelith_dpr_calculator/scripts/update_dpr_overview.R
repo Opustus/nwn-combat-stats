@@ -2,7 +2,7 @@
 # Broad Overview Spreadsheet Update
 # Updates the project's overview of damage per round AC ranges
 
-source("R/nwn_dpr_core.R")
+source("R/arelith_dpr_core.R")
 source("config/config.R")
 library(googlesheets4)
 library(dplyr)
@@ -29,3 +29,4 @@ range_write(
   range = "M2",
   col_names = FALSE
 )
+
